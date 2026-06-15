@@ -4,8 +4,8 @@ A personal assistant for automated job searching and intelligent evaluation of j
 
 ## Current Features
 - **Scraping**: Automated fetching of job listings from the `jobs.ch` portal using their internal API.
-- **Database**: Storage of job listings in PostgreSQL (title, company, location, URL).
-- **Evaluation**: A system for processing new listings (currently using mock scores, ready for Gemini AI integration).
+- **Database**: Storage of job listings in PostgreSQL including full descriptions and AI evaluation results.
+- **AI Evaluation**: Integration with Google Gemini API to match job descriptions against candidate profiles.
 
 ## Tech Stack
 - Java 17+
@@ -15,8 +15,15 @@ A personal assistant for automated job searching and intelligent evaluation of j
 
 ## Getting Started
 1. Set up a PostgreSQL database named `job_agent`.
-2. Update `src/main/resources/application.properties` with your credentials.
-3. Run the application using `./mvnw spring-boot:run`.
+2. Obtain a Gemini API key from Google AI Studio.
+3. Create `src/main/resources/application-local.properties` and add your key:
+   ```properties
+   gemini.api.key=your_actual_api_key_here
+   ```
+4. Run the application with the `local` profile:
+   ```bash
+   ./mvnw spring-boot:run -Dspring-profiles.active=local
+   ```
 
 ## API Endpoints
 - `POST /api/jobs/scrape?term=java` - Triggers a search for new jobs.

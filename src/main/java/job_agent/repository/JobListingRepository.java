@@ -11,5 +11,5 @@ import java.util.Optional;
 @Repository
 public interface JobListingRepository extends JpaRepository<JobListing, UUID> {
     Optional<JobListing> findByUrl(String url);
-    List<JobListing> findByStatus(String status);
+    List<JobListing> findByAiEvaluatedFalse(); // New method
 }

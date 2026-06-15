@@ -35,7 +35,7 @@ public class JobController {
 
     @PostMapping("/evaluate")
     public String triggerEvaluation() {
-        int evaluated = evaluationService.evaluateNewJobs();
+        int evaluated = evaluationService.evaluateNewJobListings();
         return "Evaluation completed. Processed " + evaluated + " jobs.";
     }
 }
