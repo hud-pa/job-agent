@@ -18,11 +18,14 @@ public class JobListing {
     private String url;
     private String source;
     private LocalDate dateFound;
+    @Column(columnDefinition = "TEXT")
+    private String description;
     private String status; // e.g., "new", "evaluated", "rejected", "accepted"
-    private boolean isSeen;
+    private Boolean isSeen = false;
     private Integer aiScore; // e.g., 1-100
     @Column(length = 1000) // Adjust length as needed
     private String aiReasoning;
+    private Boolean aiEvaluated = false; // New field
 
     public JobListing() {
     }
@@ -36,6 +39,7 @@ public class JobListing {
         this.dateFound = dateFound;
         this.status = "new";
         this.isSeen = false;
+        this.aiEvaluated = false; // Default value for new listings
     }
 
     // Getters and Setters
@@ -95,6 +99,14 @@ public class JobListing {
         this.dateFound = dateFound;
     }
 
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     public String getStatus() {
         return status;
     }
@@ -103,11 +115,11 @@ public class JobListing {
         this.status = status;
     }
 
-    public boolean isSeen() {
+    public Boolean isSeen() {
         return isSeen;
     }
 
-    public void setSeen(boolean seen) {
+    public void setSeen(Boolean seen) {
         isSeen = seen;
     }
 
@@ -127,6 +139,14 @@ public class JobListing {
         this.aiReasoning = aiReasoning;
     }
 
+    public Boolean isAiEvaluated() {
+        return aiEvaluated;
+    }
+
+    public void setAiEvaluated(Boolean aiEvaluated) {
+        this.aiEvaluated = aiEvaluated;
+    }
+
     @Override
     public String toString() {
         return "JobListing{" +
@@ -141,6 +161,7 @@ public class JobListing {
                ", isSeen=" + isSeen +
                ", aiScore=" + aiScore +
                ", aiReasoning='" + aiReasoning + '\'' +
+               ", aiEvaluated=" + aiEvaluated +
                '}';
     }
 }
