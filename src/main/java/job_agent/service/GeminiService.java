@@ -23,21 +23,23 @@ public class GeminiService {
     private static final Logger log = LoggerFactory.getLogger(GeminiService.class);
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final AppConfigService appConfigService; // Inject AppConfigService
 
     private final String geminiApiKey;
 
-    //private final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=";
     private final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=";
 
 
     public GeminiService(RestTemplateBuilder restTemplateBuilder, 
                          ObjectMapper objectMapper,
-                         @Value("${gemini.api.key}") String geminiApiKey) { // Corrected constructor injection
+                         AppConfigService appConfigService, // Add AppConfigService to constructor
+                         @Value("${gemini.api.key}") String geminiApiKey) {
         this.restTemplate = restTemplateBuilder
                 .setConnectTimeout(Duration.ofSeconds(5))
                 .setReadTimeout(Duration.ofSeconds(10))
                 .build();
         this.objectMapper = objectMapper;
+        this.appConfigService = appConfigService; // Assign AppConfigService
         this.geminiApiKey = geminiApiKey;
     }
 
@@ -56,20 +58,20 @@ public class GeminiService {
             return parseGeminiResponse(response);
         } catch (Exception e) {
             log.error("Error calling Gemini API", e);
-            // Return -1 to indicate a technical API call failure
             return new GeminiEvaluationResult(-1, "Error during AI evaluation: " + e.getMessage());
         }
     }
 
     private String buildPrompt(String description) {
+        String cvText = appConfigService.getValue("cv_text"); // Get cv_text from AppConfigService
+        if (cvText == null || cvText.isEmpty()) {
+            cvText = "Junior/Mid level Java Developer with Spring Boot experience."; // Fallback if config not found
+            log.warn("cv_text not found in AppConfig, using default fallback text for Gemini prompt.");
+        }
+
         return "Analyze the following job description (provided in JSON-LD or text format) " +
-               "and evaluate whether it is suitable " +
-               "for a candidate with the following experience:\n" +
-               "- Java (Advanced), Spring Boot, Hibernate, PostgreSQL\n" +
-               "- REST API, MVC Architecture\n" +
-               "- AWS (Basic), Git, Agile/Scrum\n" +
-               "- Junior/Mid level\n" +
-               "- Location preference: Bern, Switzerland\n" +
+               "and evaluate whether it is suitable for a candidate with the following experience:\n" +
+               cvText + "\n" + // Use dynamic cv_text
                "Respond ONLY in this JSON format:\n" +
                "{\"score\": 75, \"reasoning\": \"reason\"}\n\n" +
                "Job Content:\n" + description;
@@ -121,7 +123,6 @@ public class GeminiService {
         } catch (Exception e) {
             log.error("Error parsing Gemini API response: {}", response, e);
         }
-        // Return -1 to indicate a technical parsing error rather than a low match score
         return new GeminiEvaluationResult(-1, "Failed to parse Gemini response.");
     }
 

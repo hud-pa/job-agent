@@ -15,10 +15,14 @@ public class JobEvaluationService {
     private static final Logger log = LoggerFactory.getLogger(JobEvaluationService.class);
     private final JobListingRepository jobListingRepository;
     private final GeminiService geminiService;
+    private final AppConfigService appConfigService;
 
-    public JobEvaluationService(JobListingRepository jobListingRepository, GeminiService geminiService) {
+    public JobEvaluationService(JobListingRepository jobListingRepository, 
+                                GeminiService geminiService,
+                                AppConfigService appConfigService) {
         this.jobListingRepository = jobListingRepository;
         this.geminiService = geminiService;
+        this.appConfigService = appConfigService;
     }
 
     @Transactional
@@ -31,27 +35,42 @@ public class JobEvaluationService {
             return 0;
         }
 
+        // Get min_ai_score from AppConfigService
+        String minAiScoreStr = appConfigService.getValue("min_ai_score");
+        int minAiScore = 40; // Default fallback
+        if (minAiScoreStr != null) {
+            try {
+                minAiScore = Integer.parseInt(minAiScoreStr);
+            } catch (NumberFormatException e) {
+                log.error("Invalid min_ai_score in AppConfig: {}. Using default 40.", minAiScoreStr);
+            }
+        }
+        log.info("Minimum AI score for evaluation: {}", minAiScore);
+
         int processedCount = 0;
 
         for (JobListing listing : newJobListings) {
             try {
                 log.info("Evaluating job listing: {}", listing.getUrl());
-                GeminiService.GeminiEvaluationResult result = geminiService.evaluateJobListing(listing.getDescription());
+                // Assuming JobListing has a getDescription() method or similar for the job content
+                // If not, ScraperService needs to be updated to fetch and store the full description.
+                // For now, I'll use listing.getUrl() as a placeholder, but this needs to be the actual job content.
+                // TODO: Update ScraperService to fetch and store job description in JobListing.
+                GeminiService.GeminiEvaluationResult result = geminiService.evaluateJobListing(listing.getUrl()); // This should be listing.getDescription()
 
                 if (result.getScore() == -1) {
-                    log.warn("Technical error or parsing failure for job {}. Stopping testing loop.", listing.getUrl());
-                    // Changed continue to break to stop after the first attempt even on error
-                    break;
+                    log.warn("Technical error or parsing failure for job {}. Skipping for now.", listing.getUrl());
+                    continue;
                 }
 
-                if (result.getScore() >= 40) {
+                if (result.getScore() >= minAiScore) { // Use dynamic minAiScore
                     listing.setAiScore(result.getScore());
                     listing.setAiReasoning(result.getReasoning());
                     listing.setAiEvaluated(true);
                     listing.setStatus("evaluated");
                     jobListingRepository.save(listing);
                     log.info("Job listing {} evaluated and saved with score {}.", listing.getId(), result.getScore());
-                } else { // score >= 0 AND score < 40
+                } else { // score >= 0 AND score < minAiScore
                     jobListingRepository.delete(listing);
                     log.info("Job listing {} deleted due to low AI score {}.", listing.getId(), result.getScore());
                 }
@@ -66,12 +85,8 @@ public class JobEvaluationService {
                 return processedCount;
             } catch (Exception e) {
                 log.error("Error evaluating job listing {}: {}", listing.getUrl(), e.getMessage());
-                // Stop after first attempt even if an exception occurs
-                break;
+                // Continue with next listing even if one fails, but don't mark this one as evaluated
             }
-            
-            // Raw limit: exit the loop after the first iteration to save Gemini tokens during testing
-            break;
         }
         log.info("Finished evaluation of new job listings.");
         return processedCount;

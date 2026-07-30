@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title>Settings</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div class="container">
+        <h2>Settings</h2>
+        <div id="alert-placeholder"></div>
+
+        <div class="mb-3">
+            <label for="searchTerm" class="form-label">Job Search Term</label>
+            <div class="input-group">
+                <input type="text" class="form-control" id="searchTerm" th:value="${settings.search_term}">
+                <button class="btn btn-outline-primary" onclick="saveSetting('search_term', 'searchTerm')">Save</button>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label for="minAiScore" class="form-label">Minimum AI Score</label>
+            <div class="input-group">
+                <input type="number" class="form-control" id="minAiScore" min="0" max="100" th:value="${settings.min_ai_score}">
+                <button class="btn btn-outline-primary" onclick="saveSetting('min_ai_score', 'minAiScore')">Save</button>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label for="cvText" class="form-label">CV / Candidate Profile</label>
+            <div class="input-group">
+                <textarea class="form-control" id="cvText" rows="10" th:text="${settings.cv_text}"></textarea>
+                <button class="btn btn-outline-primary align-self-start" onclick="saveSetting('cv_text', 'cvText')">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function saveSetting(key, elementId) {
+            const value = document.getElementById(elementId).value;
+            const alertPlaceholder = document.getElementById('alert-placeholder');
+
+            try {
+                const response = await fetch(`/api/config/${key}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: value
+                });
+
+                if (response.ok) {
+                    showAlert('Configuration saved successfully!', 'success');
+                } else {
+                    showAlert('Failed to save configuration.', 'danger');
+                }
+            } catch (error) {
+                showAlert('An error occurred while saving.', 'danger');
+            }
+        }
+
+        function showAlert(message, type) {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = [
+                `<div class="alert alert-${type} alert-dismissible" role="alert">`,
+                `   <div>${message}</div>`,
+                '   <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>',
+                '</div>'
+            ].join('');
+
+            document.getElementById('alert-placeholder').append(wrapper);
+        }
+    </script>
+</div>
+</body>
+</html>
