@@ -23,7 +23,7 @@ public class JobListing {
     private String status; // e.g., "new", "evaluated", "rejected", "accepted"
     private Boolean isSeen = false;
     private Integer aiScore; // e.g., 1-100
-    @Column(length = 1000) // Adjust length as needed
+    @Column(length = 2000) // Adjust length as needed
     private String aiReasoning;
     private Boolean aiEvaluated = false; // New field
 

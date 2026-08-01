@@ -47,7 +47,7 @@ public class ScraperService {
 
         String encodedTerm = URLEncoder.encode(searchTerm, StandardCharsets.UTF_8);
         // Using the internal API endpoint for more reliable data fetching
-        String url = "https://job-search-api.jobs.ch/search/semantic?query=" + encodedTerm + "&rows=20&sort=date";
+        String url = "https://job-search-api.jobs.ch/search/semantic?query=" + encodedTerm + "&rows=5&sort=date";
 
         int newJobsCount = 0;
         try {
