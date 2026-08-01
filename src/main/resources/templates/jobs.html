@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title>Job Listings</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>Job Listings</h2>
+            <div>
+                <button id="findJobsBtn" class="btn btn-primary">Find New Jobs</button>
+                <div class="form-check form-switch d-inline-block ms-3">
+                    <input class="form-check-input" type="checkbox" id="showAllToggle">
+                    <label class="form-check-label" for="showAllToggle">Show All</label>
+                </div>
+            </div>
+        </div>
+
+        <div id="loadingSpinner" class="d-none text-center my-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Searching and evaluating jobs...</p>
+        </div>
+
+        <div id="errorMessage" class="alert alert-danger d-none" role="alert"></div>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Company</th>
+                    <th>Location</th>
+                    <th>AI Score</th>
+                    <th>AI Reasoning</th>
+                    <th>Status</th>
+                    <th>Date Found</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody id="jobs-table-body">
+                <tr th:each="job : ${jobs}" th:classappend="${!job.aiEvaluated} ? 'unevaluated' : ''">
+                    <td><a th:href="${job.url}" th:text="${job.title}" target="_blank"></a></td>
+                    <td th:text="${job.company}"></td>
+                    <td th:text="${job.location}"></td>
+                    <td>
+                        <span th:if="${job.aiScore != null}"
+                              th:text="${job.aiScore}"
+                              th:classappend="${job.aiScore >= 70 ? 'text-success' : (job.aiScore >= 40 ? 'text-warning' : 'text-danger')}">
+                        </span>
+                    </td>
+                    <td th:text="${job.aiReasoning}"></td>
+                    <td th:text="${job.status}"></td>
+                    <td th:text="${#temporals.format(job.dateFound, 'dd-MM-yyyy')}"></td>
+                    <td>
+                        <button th:if="${!job.seen}" class="btn btn-sm btn-outline-secondary me-1 seen-btn"
+                                th:attr="data-job-id=${job.id}">Mark Seen</button>
+                        <button class="btn btn-sm btn-outline-success me-1 applied-btn"
+                                th:attr="data-job-id=${job.id}">Applied</button>
+                        <button class="btn btn-sm btn-outline-danger delete-btn"
+                                th:attr="data-job-id=${job.id}">Delete</button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Event delegation for action buttons
+            const tableBody = document.getElementById('jobs-table-body');
+            tableBody.addEventListener('click', function(event) {
+                const target = event.target;
+                const jobId = target.getAttribute('data-job-id');
+                if (!jobId) return;
+
+                if (target.classList.contains('delete-btn')) {
+                    deleteJob(jobId);
+                } else if (target.classList.contains('seen-btn')) {
+                    markAsSeen(jobId);
+                } else if (target.classList.contains('applied-btn')) {
+                    updateStatus(jobId, 'applied');
+                }
+            });
+
+            // Find New Jobs button
+            document.getElementById('findJobsBtn').addEventListener('click', findNewJobs);
+
+            // Show All toggle
+            const showAllToggle = document.getElementById('showAllToggle');
+            showAllToggle.addEventListener('change', function() {
+                const isChecked = this.checked;
+                document.querySelectorAll('.unevaluated').forEach(row => {
+                    row.style.display = isChecked ? 'table-row' : 'none';
+                });
+            });
+
+            // Hide unevaluated rows by default
+            document.querySelectorAll('.unevaluated').forEach(row => {
+                row.style.display = 'none';
+            });
+        });
+
+        async function findNewJobs() {
+            const spinner = document.getElementById('loadingSpinner');
+            const errorMsg = document.getElementById('errorMessage');
+            const btn = document.getElementById('findJobsBtn');
+
+            spinner.classList.remove('d-none');
+            errorMsg.classList.add('d-none');
+            btn.disabled = true;
+
+            try {
+                console.log('Starting job scraping...');
+                const scrapeResponse = await fetch('/api/jobs/scrape', { method: 'POST' });
+                if (!scrapeResponse.ok) {
+                    throw new Error(`Scraping failed with status: ${scrapeResponse.statusText}`);
+                }
+                console.log('Scraping completed.');
+
+                console.log('Starting job evaluation...');
+                const evaluateResponse = await fetch('/api/jobs/evaluate', { method: 'POST' });
+                if (!evaluateResponse.ok) {
+                    throw new Error(`Evaluation failed with status: ${evaluateResponse.statusText}`);
+                }
+                console.log('Evaluation completed.');
+
+                window.location.reload();
+            } catch (error) {
+                errorMsg.textContent = error.message;
+                errorMsg.classList.remove('d-none');
+            } finally {
+                spinner.classList.add('d-none');
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteJob(id) {
+            if (confirm('Are you sure you want to delete this job?')) {
+                try {
+                    const response = await fetch(`/api/jobs/${id}`, { method: 'DELETE' });
+                    if (response.ok) {
+                        window.location.reload();
+                    } else {
+                        alert('Failed to delete job.');
+                    }
+                } catch (error) {
+                    alert('An error occurred while deleting the job.');
+                }
+            }
+        }
+
+        async function markAsSeen(id) {
+            try {
+                const response = await fetch(`/api/jobs/${id}/seen`, { method: 'PUT' });
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Failed to mark job as seen.');
+                }
+            } catch (error) {
+                alert('An error occurred.');
+            }
+        }
+
+        async function updateStatus(id, status) {
+            try {
+                const response = await fetch(`/api/jobs/${id}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: status })
+                });
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Failed to update job status.');
+                }
+            } catch (error) {
+                alert('An error occurred.');
+            }
+        }
+    </script>
+</div>
+</body>
+</html>

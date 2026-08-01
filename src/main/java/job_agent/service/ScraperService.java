@@ -27,17 +27,27 @@ public class ScraperService {
     private final JobListingRepository repository;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final AppConfigService appConfigService; // Inject AppConfigService
 
-    public ScraperService(JobListingRepository repository, ObjectMapper objectMapper) {
+    public ScraperService(JobListingRepository repository, 
+                          ObjectMapper objectMapper,
+                          AppConfigService appConfigService) { // Add AppConfigService to constructor
         this.repository = repository;
         this.objectMapper = objectMapper;
         this.restTemplate = new RestTemplate();
+        this.appConfigService = appConfigService; // Assign AppConfigService
     }
 
-    public int scrapeJobs(String searchTerm) {
+    public int scrapeJobs() { // Removed searchTerm parameter
+        String searchTerm = appConfigService.getValue("search_term"); // Get search_term from AppConfigService
+        if (searchTerm == null || searchTerm.isEmpty()) {
+            searchTerm = "java developer"; // Fallback if config not found
+            logger.warn("search_term not found in AppConfig, using default fallback term: '{}'", searchTerm);
+        }
+
         String encodedTerm = URLEncoder.encode(searchTerm, StandardCharsets.UTF_8);
         // Using the internal API endpoint for more reliable data fetching
-        String url = "https://job-search-api.jobs.ch/search/semantic?query=" + encodedTerm + "&rows=20";
+        String url = "https://job-search-api.jobs.ch/search/semantic?query=" + encodedTerm + "&rows=5&sort=date";
 
         int newJobsCount = 0;
         try {
