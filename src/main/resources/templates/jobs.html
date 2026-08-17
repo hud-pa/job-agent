@@ -28,42 +28,95 @@
         <div id="errorMessage" class="alert alert-danger d-none" role="alert"></div>
 
         <div class="table-responsive">
-            <table class="table table-striped table-hover">
+            <table class="table table-striped table-hover align-middle">
                 <thead>
                 <tr>
                     <th>Title</th>
                     <th>Company</th>
                     <th>Location</th>
-                    <th>AI Score</th>
-                    <th>AI Reasoning</th>
+                    <th style="min-width: 130px;">AI Score</th>
+                    <th>Recommendation</th>
+                    <th>Match Details</th>
                     <th>Status</th>
                     <th>Date Found</th>
                     <th>Actions</th>
                 </tr>
                 </thead>
                 <tbody id="jobs-table-body">
-                <tr th:each="job : ${jobs}" th:classappend="${!job.aiEvaluated} ? 'unevaluated' : ''">
-                    <td><a th:href="${job.url}" th:text="${job.title}" target="_blank"></a></td>
-                    <td th:text="${job.company}"></td>
-                    <td th:text="${job.location}"></td>
-                    <td>
-                        <span th:if="${job.aiScore != null}"
-                              th:text="${job.aiScore}"
-                              th:classappend="${job.aiScore >= 70 ? 'text-success' : (job.aiScore >= 40 ? 'text-warning' : 'text-danger')}">
-                        </span>
-                    </td>
-                    <td th:text="${job.aiReasoning}"></td>
-                    <td th:text="${job.status}"></td>
-                    <td th:text="${#temporals.format(job.dateFound, 'dd-MM-yyyy')}"></td>
-                    <td>
-                        <button th:if="${!job.seen}" class="btn btn-sm btn-outline-secondary me-1 seen-btn"
-                                th:attr="data-job-id=${job.id}">Mark Seen</button>
-                        <button class="btn btn-sm btn-outline-success me-1 applied-btn"
-                                th:attr="data-job-id=${job.id}">Applied</button>
-                        <button class="btn btn-sm btn-outline-danger delete-btn"
-                                th:attr="data-job-id=${job.id}">Delete</button>
-                    </td>
-                </tr>
+                <th:block th:each="job : ${jobs}">
+                    <tr th:classappend="${!job.aiEvaluated} ? 'unevaluated' : ''">
+                        <td>
+                            <a th:href="@{/jobs/{id}(id=${job.id})}" th:text="${job.title}" class="fw-bold text-decoration-none">Title</a>
+                        </td>
+                        <td th:text="${job.company}">Company</td>
+                        <td th:text="${job.location}">Location</td>
+                        <td>
+                            <div th:if="${job.aiScore != null}" class="progress" style="height: 20px;">
+                                <div class="progress-bar fw-bold"
+                                     role="progressbar"
+                                     th:style="'width: ' + ${job.aiScore} + '%'"
+                                     th:classappend="${job.aiScore >= 70 ? 'bg-success' : (job.aiScore >= 40 ? 'bg-warning text-dark' : 'bg-danger')}"
+                                     th:aria-valuenow="${job.aiScore}"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100"
+                                     th:text="${job.aiScore + '%'}">
+                                </div>
+                            </div>
+                            <span th:if="${job.aiScore == null}" class="text-muted">N/A</span>
+                        </td>
+                        <td>
+                            <span th:if="${job.recommendation != null}"
+                                  class="badge"
+                                  th:classappend="${job.recommendation == 'APPLY' ? 'bg-success' : (job.recommendation == 'CONSIDER' ? 'bg-warning text-dark' : 'bg-danger')}"
+                                  th:text="${job.recommendation}">
+                            </span>
+                            <span th:if="${job.recommendation == null}" class="text-muted">N/A</span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-info"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    th:attr="data-bs-target='#details-' + ${job.id}"
+                                    aria-expanded="false">
+                                Details &#9660;
+                            </button>
+                        </td>
+                        <td><span class="badge bg-secondary" th:text="${job.status}">Status</span></td>
+                        <td th:text="${#temporals.format(job.dateFound, 'dd-MM-yyyy')}">Date</td>
+                        <td>
+                            <button th:if="${!job.seen}" class="btn btn-sm btn-outline-secondary me-1 seen-btn"
+                                    th:attr="data-job-id=${job.id}">Mark Seen</button>
+                            <button class="btn btn-sm btn-outline-success me-1 applied-btn"
+                                    th:attr="data-job-id=${job.id}">Applied</button>
+                            <button class="btn btn-sm btn-outline-danger delete-btn"
+                                    th:attr="data-job-id=${job.id}">Delete</button>
+                        </td>
+                    </tr>
+                    <tr th:id="'details-' + ${job.id}" class="collapse bg-light" th:classappend="${!job.aiEvaluated} ? 'unevaluated' : ''">
+                        <td colspan="9" class="p-3">
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3">
+                                    <strong>Technical Match:</strong> <span th:text="${job.technicalMatch != null ? job.technicalMatch : 'N/A'}"></span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Language Match:</strong> <span th:text="${job.languageMatch != null ? job.languageMatch : 'N/A'}"></span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Level Match:</strong> <span th:text="${job.levelMatch != null ? job.levelMatch : 'N/A'}"></span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Location Match:</strong> <span th:text="${job.locationMatch != null ? job.locationMatch : 'N/A'}"></span>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <strong>Strengths:</strong> <span th:text="${job.strengths != null && !job.strengths.isBlank() ? job.strengths : 'N/A'}"></span>
+                            </div>
+                            <div class="mt-1">
+                                <strong>Missing Skills:</strong> <span th:text="${job.missingSkills != null && !job.missingSkills.isBlank() ? job.missingSkills : 'N/A'}"></span>
+                            </div>
+                        </td>
+                    </tr>
+                </th:block>
                 </tbody>
             </table>
         </div>

@@ -98,10 +98,18 @@ public class GeminiService {
             log.warn("cv_json not found in AppConfig – using built-in fallback profile for Gemini prompt.");
         }
 
-        return """
-                You are a job matching assistant. Evaluate if this job matches the candidate profile.
+        String cvText = appConfigService.getValue("cv_text");
+        if (cvText == null || cvText.isBlank()) {
+            cvText = "Candidate is a Java Developer looking for opportunities in Switzerland.";
+        }
 
-                CANDIDATE PROFILE:
+        return """
+                You are a job matching assistant. Evaluate if this job matches the candidate.
+
+                CANDIDATE STRUCTURED CONSTRAINTS (JSON):
+                %s
+
+                CANDIDATE FULL CV & PREFERENCES (TEXT):
                 %s
 
                 JOB DESCRIPTION:
@@ -116,10 +124,11 @@ public class GeminiService {
                   "location_match": <0-100>,
                   "strengths": ["skill1", "skill2"],
                   "missing_skills": ["skill1", "skill2"],
-                  "summary": "2-3 sentence explanation why this job matches or not",
+                  "summary": "2-4 sentence explanation why this job matches or not",
                   "recommendation": "APPLY" or "CONSIDER" or "SKIP"
-                }""".formatted(cvJson, jobDescription);
+                }""".formatted(cvJson, cvText, jobDescription);
     }
+
 
     private String buildRequestBody(String prompt) throws JsonProcessingException {
         Map<String, Object> part = new HashMap<>();

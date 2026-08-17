@@ -9,7 +9,12 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import job_agent.model.JobListing;
+import org.springframework.web.bind.annotation.PathVariable;
+
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Controller
@@ -37,6 +42,18 @@ public class JobViewController {
         return "jobs";
     }
 
+    @GetMapping("/jobs/{id}")
+    public String showJobDetail(@PathVariable UUID id, Model model) {
+        log.info("Serving job detail page for job id: {}", id);
+        Optional<JobListing> jobOptional = jobListingRepository.findById(id);
+        if (jobOptional.isEmpty()) {
+            log.warn("Job with id {} not found", id);
+            return "redirect:/jobs";
+        }
+        model.addAttribute("job", jobOptional.get());
+        return "job-detail";
+    }
+
     @GetMapping("/settings")
     public String showSettings(Model model) {
         log.info("Serving settings page.");
@@ -46,3 +63,4 @@ public class JobViewController {
         return "settings";
     }
 }
+

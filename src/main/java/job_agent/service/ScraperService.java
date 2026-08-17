@@ -1,26 +1,28 @@
 package job_agent.service;
 
-import job_agent.model.JobListing;
-import job_agent.repository.JobListingRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
-import org.springframework.stereotype.Service;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.client.RestClientException;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
-
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.select.Elements;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import job_agent.model.JobListing;
+import job_agent.repository.JobListingRepository;
 
 @Service
 public class ScraperService {
@@ -49,7 +51,7 @@ public class ScraperService {
 
         String encodedTerm = URLEncoder.encode(searchTerm, StandardCharsets.UTF_8);
         // Using the internal API endpoint for more reliable data fetching
-        String url = "https://job-search-api.jobs.ch/search/semantic?query=" + encodedTerm + "&rows=5&sort=date";
+        String url = "https://job-search-api.jobs.ch/search/semantic?query=" + encodedTerm + "&rows=20&sort=date";
 
         int newJobsCount = 0;
         try {
