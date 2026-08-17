@@ -53,7 +53,18 @@ public class AppConfigService {
         // Define default configurations
         addDefaultConfig("search_term", "java bern", "Default search term for job scraping");
         addDefaultConfig("min_ai_score", "40", "Minimum AI score for a job listing to be considered relevant");
-        addDefaultConfig("cv_text", "Java Developer with MSc in Informatics. Skills: Java (Advanced), Spring Boot, Hibernate, PostgreSQL, REST API, AWS (Basic), Git, Agile/Scrum. Junior/Mid level. Location preference: Bern, Switzerland.", "Candidate's CV text used for AI evaluation");
+        addDefaultConfig("cv_text", "Java Developer with MSc in Informatics. Skills: Java (Advanced), Spring Boot, Hibernate, PostgreSQL, REST API, AWS (Basic), Git, Agile/Scrum. Junior/Mid level. Location preference: Bern, Switzerland.", "Candidate's CV text used for AI evaluation (legacy – prefer cv_json)");
+        addDefaultConfig("cv_json",
+                """
+                {
+                  "level": "Junior",
+                  "skills": ["Java", "Spring Boot", "PostgreSQL", "Hibernate", "AWS", "REST API", "Git", "Agile"],
+                  "languages": {"slovak": "native", "english": "B2", "german": "A2"},
+                  "location": "Bern, Switzerland",
+                  "experience_years": 1,
+                  "preferred_roles": ["Java Developer", "Backend Developer", "IT Specialist"]
+                }""",
+                "Structured candidate profile JSON used by GeminiService for job matching");
 
         log.info("Default application configurations initialized.");
     }

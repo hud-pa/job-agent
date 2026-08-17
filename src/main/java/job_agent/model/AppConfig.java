@@ -1,14 +1,10 @@
 package job_agent.model;
 
 import jakarta.persistence.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Entity
 @Table(name = "app_config")
 public class AppConfig {
-
-    private static final Logger log = LoggerFactory.getLogger(AppConfig.class);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

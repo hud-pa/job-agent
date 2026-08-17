@@ -52,3 +52,4 @@ Thumbs.db
 
 ### Gemini API key ###
 application-local.properties
+.mybatis/

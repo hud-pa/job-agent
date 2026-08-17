@@ -22,10 +22,21 @@ public class JobListing {
     private String description;
     private String status; // e.g., "new", "evaluated", "rejected", "accepted"
     private Boolean isSeen = false;
-    private Integer aiScore; // e.g., 1-100
-    @Column(length = 2000) // Adjust length as needed
-    private String aiReasoning;
-    private Boolean aiEvaluated = false; // New field
+    private Integer aiScore; // overall score 0-100
+    @Column(length = 2000)
+    private String aiReasoning;      // summary / reasoning text
+    private Boolean aiEvaluated = false;
+
+    // --- Structured sub-scores (added for detailed AI evaluation) ---
+    private Integer technicalMatch;  // 0-100
+    private Integer languageMatch;   // 0-100
+    private Integer levelMatch;      // 0-100
+    private Integer locationMatch;   // 0-100
+    @Column(length = 1000)
+    private String strengths;        // comma-separated, e.g. "Java, Spring Boot"
+    @Column(length = 1000)
+    private String missingSkills;    // comma-separated, e.g. "Docker, Kubernetes"
+    private String recommendation;   // "APPLY", "CONSIDER" or "SKIP"
 
     public JobListing() {
     }
@@ -147,6 +158,62 @@ public class JobListing {
         this.aiEvaluated = aiEvaluated;
     }
 
+    public Integer getTechnicalMatch() {
+        return technicalMatch;
+    }
+
+    public void setTechnicalMatch(Integer technicalMatch) {
+        this.technicalMatch = technicalMatch;
+    }
+
+    public Integer getLanguageMatch() {
+        return languageMatch;
+    }
+
+    public void setLanguageMatch(Integer languageMatch) {
+        this.languageMatch = languageMatch;
+    }
+
+    public Integer getLevelMatch() {
+        return levelMatch;
+    }
+
+    public void setLevelMatch(Integer levelMatch) {
+        this.levelMatch = levelMatch;
+    }
+
+    public Integer getLocationMatch() {
+        return locationMatch;
+    }
+
+    public void setLocationMatch(Integer locationMatch) {
+        this.locationMatch = locationMatch;
+    }
+
+    public String getStrengths() {
+        return strengths;
+    }
+
+    public void setStrengths(String strengths) {
+        this.strengths = strengths;
+    }
+
+    public String getMissingSkills() {
+        return missingSkills;
+    }
+
+    public void setMissingSkills(String missingSkills) {
+        this.missingSkills = missingSkills;
+    }
+
+    public String getRecommendation() {
+        return recommendation;
+    }
+
+    public void setRecommendation(String recommendation) {
+        this.recommendation = recommendation;
+    }
+
     @Override
     public String toString() {
         return "JobListing{" +
@@ -162,6 +229,13 @@ public class JobListing {
                ", aiScore=" + aiScore +
                ", aiReasoning='" + aiReasoning + '\'' +
                ", aiEvaluated=" + aiEvaluated +
+               ", technicalMatch=" + technicalMatch +
+               ", languageMatch=" + languageMatch +
+               ", levelMatch=" + levelMatch +
+               ", locationMatch=" + locationMatch +
+               ", strengths='" + strengths + '\'' +
+               ", missingSkills='" + missingSkills + '\'' +
+               ", recommendation='" + recommendation + '\'' +
                '}';
     }
 }

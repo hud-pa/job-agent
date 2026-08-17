@@ -11,11 +11,13 @@ import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClientException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -97,7 +99,7 @@ public class ScraperService {
                     }
                 }
             }
-        } catch (Exception e) {
+        } catch (RestClientException e) {
             logger.error("Error during scraping jobs for term: {}", searchTerm, e);
         }
         return newJobsCount;
@@ -137,7 +139,10 @@ public class ScraperService {
                 }
             }
             logger.warn("No JobPosting JSON-LD found at URL: {}", url);
-        } catch (Exception e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Fetch job description interrupted for: {}", url, e);
+        } catch (IOException e) {
             logger.error("Failed to fetch job description from: {}", url, e);
         }
         return null;
