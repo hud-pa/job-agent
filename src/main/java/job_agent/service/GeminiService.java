@@ -27,7 +27,7 @@ public class GeminiService {
     private static final Logger log = LoggerFactory.getLogger(GeminiService.class);
 
     private static final String GEMINI_API_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
