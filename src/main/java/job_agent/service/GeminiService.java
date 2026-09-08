@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -56,6 +57,77 @@ public class GeminiService {
      */
     public EvaluationResult evaluateJobListing(String jobDescription) {
         String prompt = buildPrompt(jobDescription);
+        String jsonText = executePrompt(prompt);
+        if (jsonText == null) {
+            return null;
+        }
+
+        return parseGeminiResponse(jsonText);
+    }
+
+    /**
+     * Generates a structured candidate profile JSON and a suggested job search term
+     * from raw CV text using the Gemini API.
+     *
+     * @param cvText combined CV text (from uploaded PDF and/or manual text)
+     * @return a {@link ProfileGenerationResult} containing the clean candidate JSON and suggested search term,
+     *         or {@code null} if generation fails
+     */
+    public ProfileGenerationResult generateCandidateProfile(String cvText) {
+        return generateCandidateProfile(cvText, null);
+    }
+
+    /**
+     * Generates or updates a structured candidate profile JSON and suggested job search term.
+     * If an existing candidate JSON profile is provided, the AI updates and enriches it rather
+     * than wiping existing details.
+     *
+     * @param cvText combined CV or preferences text
+     * @param existingCvJson current candidate JSON profile to refine, or null/empty for fresh generation
+     * @return a {@link ProfileGenerationResult}, or {@code null} on failure
+     */
+    public ProfileGenerationResult generateCandidateProfile(String cvText, String existingCvJson) {
+        if (cvText == null || cvText.isBlank()) {
+            log.warn("Cannot generate candidate profile from empty CV text.");
+            return null;
+        }
+
+        String prompt = (existingCvJson != null && !existingCvJson.isBlank())
+                ? buildProfileRefinementPrompt(cvText, existingCvJson)
+                : buildProfileGenerationPrompt(cvText);
+
+        String jsonText = executePrompt(prompt);
+        if (jsonText == null || jsonText.isBlank()) {
+            log.error("Empty or null response received from Gemini for profile generation.");
+            return null;
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(jsonText);
+            if (!root.isObject()) {
+                log.error("Gemini profile generation response is not a JSON object: {}", jsonText);
+                return null;
+            }
+
+            ObjectNode objectNode = (ObjectNode) root;
+            String suggestedSearchTerm = "";
+            if (objectNode.has("suggested_search_term")) {
+                suggestedSearchTerm = objectNode.get("suggested_search_term").asText("").trim();
+                objectNode.remove("suggested_search_term");
+            }
+
+            String cleanedCvJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
+            return new ProfileGenerationResult(cleanedCvJson, suggestedSearchTerm);
+        } catch (Exception e) {
+            log.error("Failed to parse candidate profile JSON from Gemini response: {}", jsonText, e);
+            return null;
+        }
+    }
+
+    /**
+     * Calls the Gemini API with the given prompt and returns the extracted, code-fence stripped text.
+     */
+    public String executePrompt(String prompt) {
         String requestBody;
         try {
             requestBody = buildRequestBody(prompt);
@@ -78,7 +150,12 @@ public class GeminiService {
             return null;
         }
 
-        return parseGeminiResponse(rawResponse);
+        if (rawResponse == null) {
+            log.error("Gemini returned a null response body");
+            return null;
+        }
+
+        return extractTextFromResponse(rawResponse);
     }
 
     // -------------------------------------------------------------------------
@@ -129,6 +206,70 @@ public class GeminiService {
                 }""".formatted(cvJson, cvText, jobDescription);
     }
 
+    private String buildProfileGenerationPrompt(String cvText) {
+        return """
+                You are a CV parsing assistant. Extract structured candidate information from the following CV text and return ONLY a valid JSON object with no markdown, no code blocks, no extra text.
+
+                CV TEXT:
+                %s
+
+                Return this exact JSON structure:
+                {
+                  "level": "Junior" or "Mid" or "Senior",
+                  "skills": ["skill1", "skill2", ...],
+                  "languages": {"language": "level", ...},
+                  "location": {
+                    "current": "city, country",
+                    "permit": "permit type if mentioned",
+                    "preferred_cantons": ["canton1", ...]
+                  },
+                  "experience_years": <number>,
+                  "preferred_roles": ["role1", "role2", ...],
+                  "projects": ["project description", ...]
+                }
+
+                Also generate a short job search term (2-4 words, in English or German) best matching this candidate for Swiss job market. Return it as an additional field:
+                "suggested_search_term": "java developer bern"
+                """.formatted(cvText);
+    }
+
+    private String buildProfileRefinementPrompt(String cvText, String existingCvJson) {
+        return """
+                You are a CV parsing and candidate profile refinement assistant.
+                You are provided with an EXISTING CANDIDATE PROFILE (JSON) and NEW / ADDITIONAL CV AND PREFERENCES TEXT.
+
+                Your objective is to UPDATE, ENRICH, and REFINE the existing profile:
+                1. Incorporate any newly mentioned skills, languages, location preferences, work permits, or preferred roles.
+                2. If the user clarifies or specifies adjustments (e.g. higher seniority, specific cantons, new experience years, updated preferences), apply those updates.
+                3. Retain and preserve existing valid skills, projects, and details unless explicitly contradicted, refined, or replaced by the new text.
+                4. Do NOT wipe out or drop existing valid information unless instructed.
+                5. Return ONLY a valid JSON object matching the schema below, with no markdown, no code blocks, no extra text.
+
+                EXISTING CANDIDATE PROFILE (JSON):
+                %s
+
+                NEW / ADDITIONAL CV & PREFERENCES TEXT:
+                %s
+
+                Return this exact JSON structure:
+                {
+                  "level": "Junior" or "Mid" or "Senior",
+                  "skills": ["skill1", "skill2", ...],
+                  "languages": {"language": "level", ...},
+                  "location": {
+                    "current": "city, country",
+                    "permit": "permit type if mentioned",
+                    "preferred_cantons": ["canton1", ...]
+                  },
+                  "experience_years": <number>,
+                  "preferred_roles": ["role1", "role2", ...],
+                  "projects": ["project description", ...]
+                }
+
+                Also generate a short job search term (2-4 words, in English or German) best matching this updated candidate for the Swiss job market. Return it as an additional field:
+                "suggested_search_term": "java developer bern"
+                """.formatted(existingCvJson, cvText);
+    }
 
     private String buildRequestBody(String prompt) throws JsonProcessingException {
         Map<String, Object> part = new HashMap<>();
@@ -143,19 +284,7 @@ public class GeminiService {
         return objectMapper.writeValueAsString(requestBodyMap);
     }
 
-    /**
-     * Extracts the text payload from the Gemini response envelope, strips any
-     * accidental markdown fences the model may have added, and maps it to
-     * {@link EvaluationResult}.
-     *
-     * @return the parsed result, or {@code null} if the response cannot be parsed
-     */
-    private EvaluationResult parseGeminiResponse(String rawResponse) {
-        if (rawResponse == null) {
-            log.error("Gemini returned a null response body");
-            return null;
-        }
-
+    private String extractTextFromResponse(String rawResponse) {
         try {
             JsonNode root = objectMapper.readTree(rawResponse);
             JsonNode candidates = root.path("candidates");
@@ -182,6 +311,20 @@ public class GeminiService {
                                              rawText.lastIndexOf("```")).trim();
             }
 
+            return jsonText;
+        } catch (Exception e) {
+            log.error("Failed to extract text from Gemini response: {}", rawResponse, e);
+            return null;
+        }
+    }
+
+    /**
+     * Maps cleaned JSON string to {@link EvaluationResult}.
+     *
+     * @return the parsed result, or {@code null} if the response cannot be parsed
+     */
+    private EvaluationResult parseGeminiResponse(String jsonText) {
+        try {
             JsonNode result = objectMapper.readTree(jsonText);
 
             int overallScore   = result.path("overall_score").asInt(0);
@@ -204,8 +347,9 @@ public class GeminiService {
                     summary, recommendation);
 
         } catch (JsonProcessingException e) {
-            log.error("Failed to parse Gemini response JSON. Raw response: {}", rawResponse, e);
+            log.error("Failed to parse Gemini response JSON: {}", jsonText, e);
             return null;
         }
     }
 }
+

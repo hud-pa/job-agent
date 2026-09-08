@@ -2,51 +2,184 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout}">
 <head>
-    <title>Settings</title>
+    <title>Settings & Candidate Profile</title>
 </head>
 <body>
 <div layout:fragment="content">
-    <div class="container my-4">
-        <h2>Settings</h2>
+    <div class="container my-4" style="max-width: 960px;">
+
+        <!-- Header -->
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+                <h2 class="fw-bold mb-1">Settings & Candidate Profile</h2>
+                <p class="text-muted mb-0">Manage your CV data, AI profile extraction, and Swiss job search matching criteria.</p>
+            </div>
+        </div>
+
         <div id="alert-placeholder"></div>
 
-        <div class="mb-3">
-            <label for="searchTerm" class="form-label fw-bold">Job Search Term</label>
-            <div class="input-group">
-                <input type="text" class="form-control" id="searchTerm" th:value="${settings.search_term}">
-                <button class="btn btn-outline-primary" onclick="saveSetting('search_term', 'searchTerm')">Save</button>
+        <!-- Toast Notifications -->
+        <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1090;">
+            <div id="statusToast" class="toast align-items-center text-white border-0 shadow" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body" id="toastMessage"></div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
             </div>
         </div>
 
-        <div class="mb-3">
-            <label for="minAiScore" class="form-label fw-bold">Minimum AI Score</label>
-            <div class="input-group">
-                <input type="number" class="form-control" id="minAiScore" min="0" max="100" th:value="${settings.min_ai_score}">
-                <button class="btn btn-outline-primary" onclick="saveSetting('min_ai_score', 'minAiScore')">Save</button>
+        <!-- How It Works / Instructions Card -->
+        <div class="card mb-4 border-0 shadow-sm bg-light">
+            <div class="card-body p-4">
+                <h5 class="fw-bold text-primary mb-3">
+                    <i class="bi bi-info-circle me-2"></i>💡 How It Works
+                </h5>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="h-100 p-3 bg-white rounded shadow-sm border">
+                            <h6 class="fw-bold text-dark mb-2">1. Provide Your Information</h6>
+                            <p class="small text-muted mb-0">
+                                Upload your CV in <strong>PDF format</strong>, or type your skills, background, and career preferences directly into the text box (or both).
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="h-100 p-3 bg-white rounded shadow-sm border">
+                            <h6 class="fw-bold text-dark mb-2">2. AI Profile Extraction</h6>
+                            <p class="small text-muted mb-0">
+                                Click <strong>"✨ Generate Profile"</strong>. Gemini AI extracts technical skills, seniority, languages, and suggests a matching Swiss job search query.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="h-100 p-3 bg-white rounded shadow-sm border">
+                            <h6 class="fw-bold text-dark mb-2">3. Iterative Refinement</h6>
+                            <p class="small text-muted mb-0">
+                                Add or refine your preferences anytime. When regenerating, your existing profile is <strong>intelligently updated and enriched</strong>, not erased!
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="mb-3">
-            <label for="cvJson" class="form-label fw-bold">Candidate Profile JSON</label>
-            <div class="input-group">
-                <textarea class="form-control font-monospace" id="cvJson" rows="10" th:text="${settings.cv_json}"></textarea>
-                <button class="btn btn-outline-primary align-self-start" onclick="saveSetting('cv_json', 'cvJson')">Save</button>
+        <!-- Section 1: Candidate Profile & Input Sources -->
+        <div class="card mb-4 shadow-sm border-0">
+            <div class="card-header bg-primary text-white py-3">
+                <h5 class="mb-0 fw-semibold">Candidate Profile & Input Sources</h5>
+            </div>
+            <div class="card-body p-4">
+
+                <!-- 1. PDF Upload -->
+                <div class="mb-4">
+                    <label for="cvPdf" class="form-label fw-bold">Upload CV (PDF)</label>
+                    <div class="input-group">
+                        <input type="file" class="form-control" id="cvPdf" accept="application/pdf, .pdf">
+                        <button class="btn btn-primary px-3" type="button" id="btnGeneratePdf" onclick="generateProfile('pdf')">
+                            ✨ Generate Profile
+                        </button>
+                    </div>
+                    <div class="form-text mt-1 text-muted">
+                        Upload your CV as a PDF file. Text is extracted in-memory using Apache PDFBox and is never saved to disk.
+                    </div>
+                </div>
+
+                <hr class="my-4 text-muted">
+
+                <!-- 2. Manual Text & Preferences Area -->
+                <div class="mb-3">
+                    <label for="cvText" class="form-label fw-bold">About You, Role Preferences & Additional Notes</label>
+                    <textarea class="form-control" id="cvText" rows="6" th:text="${settings.cv_text}"
+                              placeholder="Describe yourself, your key skills, experience, desired roles, and preferences (e.g. 'Senior Java / Spring Boot developer looking for backend roles in Bern or Zurich, hybrid or remote. Fluent in English, basic German...')."></textarea>
+                    <div class="form-text mt-1 text-muted">
+                        You can paste raw CV text or specify detailed preferences here. Both PDF and text will be combined if provided together.
+                    </div>
+                </div>
+
+                <!-- Update Options & Action Buttons -->
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="updateExistingCheck" checked>
+                        <label class="form-check-label small text-muted" for="updateExistingCheck">
+                            Update & enrich existing profile (merges new details with current profile)
+                        </label>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary" type="button" onclick="saveSetting('cv_text', 'cvText')">
+                            💾 Save Text
+                        </button>
+                        <button class="btn btn-primary px-3" type="button" id="btnGenerateText" onclick="generateProfile('text')">
+                            ✨ Generate / Update Profile
+                        </button>
+                    </div>
+                </div>
+
             </div>
         </div>
 
-        <div class="mb-3">
-            <label for="cvText" class="form-label fw-bold">CV / Candidate Profile (Text)</label>
-            <div class="input-group">
-                <textarea class="form-control" id="cvText" rows="6" th:text="${settings.cv_text}"></textarea>
-                <button class="btn btn-outline-primary align-self-start" onclick="saveSetting('cv_text', 'cvText')">Save</button>
+        <!-- Section 2: Job Search & Matching Criteria -->
+        <div class="card mb-4 shadow-sm border-0">
+            <div class="card-header bg-dark text-white py-3">
+                <h5 class="mb-0 fw-semibold">Job Search & Matching Criteria</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3">
+                    <!-- Search Term -->
+                    <div class="col-md-7">
+                        <label for="searchTerm" class="form-label fw-bold">Job Search Term</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="searchTerm" th:value="${settings.search_term}"
+                                   placeholder="e.g. java developer bern">
+                            <button class="btn btn-outline-primary" type="button" onclick="saveSetting('search_term', 'searchTerm')">
+                                Save Term
+                            </button>
+                        </div>
+                        <div class="form-text mt-1 text-muted">
+                            Automatically suggested by AI when generating your profile. You can also edit and save custom search queries manually anytime.
+                        </div>
+                    </div>
+
+                    <!-- Minimum AI Score -->
+                    <div class="col-md-5">
+                        <label for="minAiScore" class="form-label fw-bold">Minimum AI Match Score</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="minAiScore" min="0" max="100" th:value="${settings.min_ai_score}"
+                                   placeholder="40">
+                            <button class="btn btn-outline-primary" type="button" onclick="saveSetting('min_ai_score', 'minAiScore')">
+                                Save Score
+                            </button>
+                        </div>
+                        <div class="form-text mt-1 text-muted">
+                            Jobs scored below this threshold (0-100) are automatically excluded.
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+
+        <!-- Section 3: Generated Candidate Profile JSON (Verification at the bottom) -->
+        <div class="card mb-4 shadow-sm border-0">
+            <div class="card-header bg-secondary text-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-semibold">Generated Candidate Profile JSON</h5>
+                <button class="btn btn-sm btn-light" type="button" onclick="copyJsonToClipboard()">
+                    📋 Copy JSON
+                </button>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-2">
+                    Below is your structured candidate profile in JSON format, generated by Gemini AI. This data is used as the active evaluation profile for scoring incoming jobs.
+                </p>
+                <textarea class="form-control font-monospace bg-light border" id="cvJson" rows="12" readonly
+                          th:text="${settings.cv_json}" placeholder="Candidate profile JSON will appear here once generated..."></textarea>
+            </div>
+        </div>
+
     </div>
 
+    <!-- JavaScript Functions -->
     <script>
         async function saveSetting(key, elementId) {
             const value = document.getElementById(elementId).value;
-            const alertPlaceholder = document.getElementById('alert-placeholder');
 
             try {
                 const response = await fetch(`/api/config/${key}`, {
@@ -56,13 +189,113 @@
                 });
 
                 if (response.ok) {
-                    showAlert('Configuration saved successfully!', 'success');
+                    showToast('Setting saved successfully!', true);
                 } else {
-                    showAlert('Failed to save configuration.', 'danger');
+                    showToast('Failed to save setting.', false);
                 }
             } catch (error) {
-                showAlert('An error occurred while saving.', 'danger');
+                showToast('An error occurred while saving: ' + error.message, false);
             }
+        }
+
+        async function generateProfile(source) {
+            const fileInput = document.getElementById('cvPdf');
+            const textInput = document.getElementById('cvText');
+            const cvJsonElement = document.getElementById('cvJson');
+            const updateExistingCheck = document.getElementById('updateExistingCheck');
+
+            const btnPdf = document.getElementById('btnGeneratePdf');
+            const btnText = document.getElementById('btnGenerateText');
+
+            const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+            const hasText = textInput && textInput.value.trim().length > 0;
+
+            if (!hasFile && !hasText) {
+                showToast('Please upload a PDF or enter details in the text box before generating.', false);
+                return;
+            }
+
+            const formData = new FormData();
+            if (hasFile) {
+                formData.append('file', fileInput.files[0]);
+            }
+            if (hasText) {
+                formData.append('text', textInput.value.trim());
+            }
+
+            const updateExisting = updateExistingCheck ? updateExistingCheck.checked : true;
+            formData.append('update_existing', updateExisting);
+
+            if (updateExisting && cvJsonElement && cvJsonElement.value.trim()) {
+                formData.append('existing_json', cvJsonElement.value.trim());
+            }
+
+            // Button loading spinner
+            const origBtnPdfHtml = btnPdf ? btnPdf.innerHTML : '';
+            const origBtnTextHtml = btnText ? btnText.innerHTML : '';
+            const spinnerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Generating...';
+
+            if (btnPdf) { btnPdf.disabled = true; btnPdf.innerHTML = spinnerHTML; }
+            if (btnText) { btnText.disabled = true; btnText.innerHTML = spinnerHTML; }
+
+            try {
+                const response = await fetch('/api/config/generate-profile', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.cv_json && cvJsonElement) {
+                        cvJsonElement.value = data.cv_json;
+                    }
+
+                    if (data.search_term) {
+                        const searchTermInput = document.getElementById('searchTerm');
+                        if (searchTermInput) searchTermInput.value = data.search_term;
+                    }
+
+                    showToast('Profile generated and updated successfully!', true);
+                } else {
+                    showToast(data.error || 'Failed to generate profile.', false);
+                }
+            } catch (error) {
+                console.error('Error during profile generation:', error);
+                showToast('An error occurred while generating profile: ' + error.message, false);
+            } finally {
+                if (btnPdf) { btnPdf.disabled = false; btnPdf.innerHTML = origBtnPdfHtml; }
+                if (btnText) { btnText.disabled = false; btnText.innerHTML = origBtnTextHtml; }
+            }
+        }
+
+        function copyJsonToClipboard() {
+            const cvJsonElement = document.getElementById('cvJson');
+            if (!cvJsonElement || !cvJsonElement.value.trim()) {
+                showToast('No JSON profile to copy.', false);
+                return;
+            }
+
+            navigator.clipboard.writeText(cvJsonElement.value)
+                .then(() => showToast('Profile JSON copied to clipboard!', true))
+                .catch(() => showToast('Could not copy JSON to clipboard.', false));
+        }
+
+        function showToast(message, isSuccess) {
+            const toastEl = document.getElementById('statusToast');
+            const messageEl = document.getElementById('toastMessage');
+
+            if (!toastEl || !messageEl) {
+                showAlert(message, isSuccess ? 'success' : 'danger');
+                return;
+            }
+
+            toastEl.classList.remove('bg-success', 'bg-danger');
+            toastEl.classList.add(isSuccess ? 'bg-success' : 'bg-danger');
+            messageEl.textContent = message;
+
+            const toast = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 4000 });
+            toast.show();
         }
 
         function showAlert(message, type) {
