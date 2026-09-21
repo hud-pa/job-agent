@@ -153,6 +153,21 @@
                             Jobs scored below this threshold (0-100) are automatically excluded.
                         </div>
                     </div>
+
+                    <!-- Max Scrape Limit -->
+                    <div class="col-md-5">
+                        <label for="maxScrapeLimit" class="form-label fw-bold">Max Scrape Limit</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="maxScrapeLimit" min="1" max="500" th:value="${settings.max_scrape_limit}"
+                                   placeholder="80">
+                            <button class="btn btn-outline-primary" type="button" onclick="saveSetting('max_scrape_limit', 'maxScrapeLimit')">
+                                Save Limit
+                            </button>
+                        </div>
+                        <div class="form-text mt-1 text-muted">
+                            Maximum number of new jobs to save per scrape run (1–500).
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

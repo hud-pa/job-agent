@@ -53,6 +53,8 @@ public class AppConfigService {
         // Define default configurations
         addDefaultConfig("search_term", "java bern", "Default search term for job scraping");
         addDefaultConfig("min_ai_score", "40", "Minimum AI score for a job listing to be considered relevant");
+        addDefaultConfig("max_scrape_limit", "80", "Maximum number of new jobs to save per scrape run");
+        addDefaultConfig("last_known_job_url", "", "URL of the most recently scraped job; used as a stop marker for incremental scraping");
         addDefaultConfig("cv_text", "Java Developer with MSc in Informatics. Skills: Java (Advanced), Spring Boot, Hibernate, PostgreSQL, REST API, AWS (Basic), Git, Agile/Scrum. Junior/Mid level. Location preference: Bern, Switzerland.", "Candidate's CV text used for AI evaluation (legacy – prefer cv_json)");
         addDefaultConfig("cv_json",
                 """

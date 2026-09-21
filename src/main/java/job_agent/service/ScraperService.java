@@ -28,65 +28,121 @@ import job_agent.repository.JobListingRepository;
 public class ScraperService {
 
     private static final Logger logger = LoggerFactory.getLogger(ScraperService.class);
+    private static final int PAGE_SIZE = 50;
+
     private final JobListingRepository repository;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
-    private final AppConfigService appConfigService; // Inject AppConfigService
+    private final AppConfigService appConfigService;
 
-    public ScraperService(JobListingRepository repository, 
+    public ScraperService(JobListingRepository repository,
                           ObjectMapper objectMapper,
-                          AppConfigService appConfigService) { // Add AppConfigService to constructor
+                          AppConfigService appConfigService) {
         this.repository = repository;
         this.objectMapper = objectMapper;
         this.restTemplate = new RestTemplate();
-        this.appConfigService = appConfigService; // Assign AppConfigService
+        this.appConfigService = appConfigService;
     }
 
-    public int scrapeJobs() { // Removed searchTerm parameter
-        String searchTerm = appConfigService.getValue("search_term"); // Get search_term from AppConfigService
+    public int scrapeJobs() {
+        // --- Load config ---
+        String searchTerm = appConfigService.getValue("search_term");
         if (searchTerm == null || searchTerm.isEmpty()) {
-            searchTerm = "java developer"; // Fallback if config not found
+            searchTerm = "java developer";
             logger.warn("search_term not found in AppConfig, using default fallback term: '{}'", searchTerm);
         }
 
-        String encodedTerm = URLEncoder.encode(searchTerm, StandardCharsets.UTF_8);
-        // Using the internal API endpoint for more reliable data fetching
-        String url = "https://job-search-api.jobs.ch/search/semantic?query=" + encodedTerm + "&rows=20&sort=date";
-
-        int newJobsCount = 0;
+        int maxScrapeLimit = 80;
+        String maxLimitRaw = appConfigService.getValue("max_scrape_limit");
         try {
-            logger.info("Fetching jobs from API for term: {}", searchTerm);
+            if (maxLimitRaw != null && !maxLimitRaw.isEmpty()) {
+                maxScrapeLimit = Integer.parseInt(maxLimitRaw);
+            }
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid max_scrape_limit value '{}', using default: {}", maxLimitRaw, maxScrapeLimit);
+        }
 
-            // Set headers to mimic a browser request
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
-            HttpEntity<String> entity = new HttpEntity<>(headers);
+        String lastKnownJobUrl = appConfigService.getValue("last_known_job_url");
+        if (lastKnownJobUrl == null) {
+            lastKnownJobUrl = "";
+        }
 
-            ResponseEntity<JsonNode> response = restTemplate.exchange(url, HttpMethod.GET, entity, JsonNode.class);
-            JsonNode root = response.getBody();
+        logger.info("Starting scrape for term: {}, max limit: {}, last known: {}",
+                searchTerm, maxScrapeLimit, lastKnownJobUrl.isEmpty() ? "(none)" : lastKnownJobUrl);
 
-            if (root != null && root.has("documents")) {
+        // --- Prepare request ---
+        String encodedTerm = URLEncoder.encode(searchTerm, StandardCharsets.UTF_8);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        // --- Scraping loop ---
+        int newJobsCount = 0;
+        boolean foundKnownJob = false;
+        String firstJobUrlOfFirstPage = null;
+
+        outerLoop:
+        for (int page = 1; ; page++) {
+            int start = (page - 1) * PAGE_SIZE;
+            String url = "https://job-search-api.jobs.ch/search/semantic?query=" + encodedTerm
+                    + "&rows=" + PAGE_SIZE + "&start=" + start + "&sort=date";
+
+            try {
+                ResponseEntity<JsonNode> response = restTemplate.exchange(url, HttpMethod.GET, entity, JsonNode.class);
+                JsonNode root = response.getBody();
+
+                if (root == null || !root.has("documents")) {
+                    logger.info("Page {}: fetched 0 jobs – stopping", page);
+                    break;
+                }
+
                 JsonNode results = root.get("documents");
-                logger.info("API returned {} job listings", results.size());
+                int pageSize = results.size();
+                logger.info("Page {}: fetched {} jobs", page, pageSize);
 
-                for (JsonNode node : results) {
-                    String title = node.path("title").asText();
-                    String company = node.path("company").path("name").asText("Unknown Company");
-                    String place = node.path("place").asText("Switzerland");
-                    
-                    // Construct the detail URL using the job ID
+                if (pageSize == 0) {
+                    break;
+                }
+
+                int newOnThisPage = 0;
+                for (int i = 0; i < pageSize; i++) {
+                    JsonNode node = results.get(i);
+
                     String jobId = node.path("id").asText();
                     String jobUrl = "https://www.jobs.ch/en/vacancies/detail/" + jobId + "/";
+
+                    // Track first job URL of the very first page for bookmark update
+                    if (page == 1 && i == 0) {
+                        firstJobUrlOfFirstPage = jobUrl;
+                    }
+
+                    // Stop condition: reached the previously known job
+                    if (!lastKnownJobUrl.isEmpty() && jobUrl.equals(lastKnownJobUrl)) {
+                        logger.info("Found known job at position {} on page {} – stopping", i + 1, page);
+                        foundKnownJob = true;
+                        break outerLoop;
+                    }
+
+                    // Stop condition: reached max limit
+                    if (newJobsCount >= maxScrapeLimit) {
+                        logger.info("Reached max limit of {} jobs – stopping", maxScrapeLimit);
+                        break outerLoop;
+                    }
 
                     if (jobUrl.isEmpty()) continue;
 
                     if (repository.findByUrl(jobUrl).isEmpty()) {
+                        String title = node.path("title").asText();
+                        String company = node.path("company").path("name").asText("Unknown Company");
+                        String place = node.path("place").asText("Switzerland");
+
                         JobListing job = new JobListing();
                         job.setTitle(title);
                         job.setCompany(company);
                         job.setLocation(place);
                         job.setUrl(jobUrl);
-                        
+
                         // Enrich with full description from JSON-LD
                         String fullJsonLd = fetchJobDescription(jobUrl);
                         job.setDescription(fullJsonLd);
@@ -95,15 +151,34 @@ public class ScraperService {
                         job.setSeen(false);
                         job.setStatus("new");
                         job.setDateFound(LocalDate.now());
-                        
+
                         repository.save(job);
                         newJobsCount++;
+                        newOnThisPage++;
                     }
                 }
+
+                // Stop condition: full page had zero new jobs → we've reached already-known content
+                if (newOnThisPage == 0 && pageSize == PAGE_SIZE) {
+                    logger.info("Page {}: no new jobs found on full page – all content already seen, stopping", page);
+                    break;
+                }
+
+            } catch (RestClientException e) {
+                logger.error("Error fetching page {} for term '{}': {}", page, searchTerm, e.getMessage());
+                break;
             }
-        } catch (RestClientException e) {
-            logger.error("Error during scraping jobs for term: {}", searchTerm, e);
         }
+
+        // --- Update bookmark ---
+        if (newJobsCount > 0 && firstJobUrlOfFirstPage != null) {
+            appConfigService.setValue("last_known_job_url", firstJobUrlOfFirstPage);
+            logger.info("Scraping finished: {} new jobs saved, last known URL updated to: {}",
+                    newJobsCount, firstJobUrlOfFirstPage);
+        } else {
+            logger.info("Scraping finished: {} new jobs saved, last known URL not updated", newJobsCount);
+        }
+
         return newJobsCount;
     }
 
